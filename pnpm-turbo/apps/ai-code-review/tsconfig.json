@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/typescript-config/tsconfig.json",
+  // "include": [".", "../../packages/util/src/types/*.d.ts"],
+  // "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@repo/util/*": ["../../packages/util/*"]
+    }
+  }
+}
