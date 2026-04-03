@@ -1,11 +1,9 @@
-import { useState } from "react";
-import { Sparkles, Play, RotateCcw, Trash2 } from "lucide-react";
-
-import { Button } from "@repo/util/src/ui/button";
-
-import { EditableCodeEditor } from "@src/shared/ui/EditableCodeEditor";
-import { ReviewPanel } from "@src/shared/ui/ReviewPanel";
-import { type Issue } from "@src/shared/ui/IssueItem";
+import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
+import { useCodeReview } from '@/hooks/useCodeReview';
+import { CodeEditorSection } from '@/app/components/editor/CodeEditorSection';
+import { ReviewSection } from '@/app/components/review/ReviewSection';
+import { Issue } from '@/types/code-review';
 
 const SAMPLE_CODE = `import React, { useState } from 'react';
 
@@ -43,129 +41,66 @@ function UserProfile({ userId }) {
 export default UserProfile;`;
 
 export default function App() {
-  const [code, setCode] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [code, setCode] = useState('');
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
-  const [highlightType, setHighlightType] = useState<Issue["type"] | null>(null);
+  const [highlightType, setHighlightType] = useState<Issue['type'] | null>(null);
+  
+  const { reviewState, analyzeCodeReview, reset, retry, isLoading } = useCodeReview();
 
   const handleAnalyze = () => {
-    if (!code.trim()) {
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setHasAnalyzed(false);
+    if (!code.trim()) return;
     setHighlightedLine(null);
     setHighlightType(null);
-
-    // Simulate AI analysis delay
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setHasAnalyzed(true);
-    }, 2500);
+    analyzeCodeReview(code);
   };
 
   const handleReset = () => {
-    setCode("");
-    setIsAnalyzing(false);
-    setHasAnalyzed(false);
+    setCode('');
     setHighlightedLine(null);
     setHighlightType(null);
+    reset();
   };
 
   const handleRetry = () => {
-    handleAnalyze();
+    setHighlightedLine(null);
+    setHighlightType(null);
+    retry(code);
   };
 
-  const handleIssueClick = (line: number, type: Issue["type"]) => {
+  const handleIssueClick = (line: number, type: Issue['type']) => {
     setHighlightedLine(line);
     setHighlightType(type);
   };
 
   const handleFileUpload = (content: string, filename: string) => {
     setCode(content);
-    setHasAnalyzed(false);
     setHighlightedLine(null);
     setHighlightType(null);
+    reset();
   };
 
   const handleLoadSample = () => {
     setCode(SAMPLE_CODE);
-    setHasAnalyzed(false);
     setHighlightedLine(null);
     setHighlightType(null);
+    reset();
   };
 
-  const canAnalyze = code.trim().length > 0 && !isAnalyzing;
+  const canAnalyze = code.trim().length > 0 && !isLoading;
+  const hasAnalyzed = reviewState.status === 'success' || reviewState.status === 'error';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl text-zinc-100">AI Code Review</h1>
-                <p className="text-xs text-zinc-500">Instant code analysis & suggestions</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <div className="flex items-center gap-2">
-              {code.length === 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadSample}
-                  className="border-zinc-700 hover:bg-zinc-800"
-                >
-                  Load Sample Code
-                </Button>
-              )}
-              {hasAnalyzed && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRetry}
-                    disabled={!canAnalyze}
-                    className="border-zinc-700 hover:bg-zinc-800"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Retry Analysis
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReset}
-                    className="border-zinc-700 hover:bg-zinc-800 text-red-400 hover:text-red-300"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Clear All
-                  </Button>
-                </>
-              )}
-              <Button
-                size="sm"
-                onClick={handleAnalyze}
-                disabled={!canAnalyze}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Analyze Code
-                  </>
-                )}
-              </Button>
+            <div>
+              <h1 className="text-xl text-zinc-100">AI Code Review</h1>
+              <p className="text-xs text-zinc-500">Instant code analysis powered by Groq AI</p>
             </div>
           </div>
         </div>
@@ -174,19 +109,25 @@ export default function App() {
       {/* Main Content */}
       <main className="p-6">
         <div className="grid grid-cols-2 gap-6 h-[calc(100vh-140px)]">
-          {/* Left Panel - Editable Code Editor */}
-          <EditableCodeEditor
+          {/* Left Panel - Code Editor */}
+          <CodeEditorSection
             code={code}
-            onChange={setCode}
+            onCodeChange={setCode}
             onFileUpload={handleFileUpload}
             highlightedLine={highlightedLine}
             highlightType={highlightType}
+            onAnalyze={handleAnalyze}
+            onRetry={handleRetry}
+            onReset={handleReset}
+            onLoadSample={handleLoadSample}
+            isAnalyzing={isLoading}
+            hasAnalyzed={hasAnalyzed}
+            canAnalyze={canAnalyze}
           />
 
           {/* Right Panel - Review Results */}
-          <ReviewPanel
-            isLoading={isAnalyzing}
-            hasAnalyzed={hasAnalyzed}
+          <ReviewSection
+            reviewState={reviewState}
             onIssueClick={handleIssueClick}
             activeIssueLine={highlightedLine}
           />
